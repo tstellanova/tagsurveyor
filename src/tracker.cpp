@@ -23,6 +23,8 @@
 // Defines and constants
 constexpr int CanSleepRetries = 10; // Based on a series of 10ms delays
 
+constexpr uint16_t TrackerMaximumCurrent = 1500; // milliamperes
+
 constexpr int TrackerLowBatteryCutoff = 2; // percent of battery charge
 constexpr int TrackerLowBatteryCutoffCorrection = 1; // percent of battery charge
 constexpr int TrackerLowBatteryWarning = 8; // percent of battery charge
@@ -452,7 +454,17 @@ void Tracker::init()
     if (_model == TRACKER_MODEL_TRACKERONE)
     {
         BLE.selectAntenna(BleAntennaType::EXTERNAL);
-        initBatteryMonitor();
+        // Favor VIN settings over USB power sources
+        SystemPowerConfiguration conf;
+        conf.powerSourceMaxCurrent(TrackerMaximumCurrent);
+        conf.feature(SystemPowerFeature::USE_VIN_SETTINGS_WITH_USB_HOST);
+        System.setPowerConfiguration(conf);
+
+        PMIC pmic(true);
+        _batteryChargeEnabled = false;
+        pmic.disableCharging();
+
+        //initBatteryMonitor();
     }
 
     cloudService.init();
@@ -524,7 +536,17 @@ void Tracker::loop()
     // Evaluate low battery conditions
     if (_model == TRACKER_MODEL_TRACKERONE)
     {
-        evaluateBatteryCharge();
+        // Manage charge enablement/disablement workaround
+        if (System.uptime() - _evalChargingTick > TrackerChargingAwakeEvalTime) {
+            auto chargeEnabled = getChargeEnabled();
+            if (chargeEnabled) {
+                PMIC pmic(true);
+                _batteryChargeEnabled = false;
+                pmic.disableCharging();
+            }
+        }
+
+        //evaluateBatteryCharge();
     }
 
     // fast operations for every loop
@@ -563,15 +585,17 @@ int Tracker::stop()
 }
 
 int Tracker::enableCharging() {
-    PMIC pmic(true);
-    _batteryChargeEnabled = true;
-    return (pmic.enableCharging()) ? SYSTEM_ERROR_NONE : SYSTEM_ERROR_IO;
+    // PMIC pmic(true);
+    // _batteryChargeEnabled = true;
+    // return (pmic.enableCharging()) ? SYSTEM_ERROR_NONE : SYSTEM_ERROR_IO;
+    return SYSTEM_ERROR_NONE;
 }
 
 int Tracker::disableCharging() {
-    PMIC pmic(true);
-    _batteryChargeEnabled = false;
-    return (pmic.disableCharging()) ? SYSTEM_ERROR_NONE : SYSTEM_ERROR_IO;
+    // PMIC pmic(true);
+    // _batteryChargeEnabled = false;
+    // return (pmic.disableCharging()) ? SYSTEM_ERROR_NONE : SYSTEM_ERROR_IO;
+    return SYSTEM_ERROR_NONE;
 }
 
 void Tracker::loc_gen_cb(JSONWriter& writer, LocationPoint &loc, const void *context)
