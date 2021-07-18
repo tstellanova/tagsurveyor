@@ -18,6 +18,7 @@
 
 #include "tracker_config.h"
 #include "tracker.h"
+#include "BeaconScanner.h"
 
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
@@ -29,19 +30,41 @@ STARTUP(
     Tracker::startup();
 );
 
-SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
+SerialLogHandler logHandler(115200, LOG_LEVEL_INFO, {
     { "app.gps.nmea", LOG_LEVEL_INFO },
-    { "app.gps.ubx",  LOG_LEVEL_INFO },
+    { "comm.protocol", LOG_LEVEL_WARN},
+    { "mux", LOG_LEVEL_WARN},
+    { "app.gps.ubx",  LOG_LEVEL_WARN },
     { "ncp.at", LOG_LEVEL_INFO },
     { "net.ppp.client", LOG_LEVEL_INFO },
 });
 
-void setup()
-{
-    Tracker::instance().init();
+
+// Called by Tracker instance when it's collecting `loc` json
+static void locGenCallback(JSONWriter &writer, LocationPoint &point, const void *context) {
+    auto beacons = Scanner.getLairdBt510();
+    if (beacons.size() > 0) {
+        Log.info("beacons avail: %d", beacons.size());
+
+        writer.name("bcnz").beginObject();
+        for (auto beacon : beacons) {
+            Log.info("beacon: %s", beacon.getAddress().toString().c_str());
+            beacon.toJson(&writer);
+        }
+        writer.endObject(); //bcnz
+    }
 }
 
-void loop()
-{
+void setup() {
+    Tracker::instance().init();
+    delay(500);
+    Tracker::instance().location.regLocGenCallback(locGenCallback);
+
+    BLE.on();
+}
+
+void loop() {
     Tracker::instance().loop();
+    Scanner.scan(5, SCAN_LAIRDBT510 );
+    delay(500);
 }
