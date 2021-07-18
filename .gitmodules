@@ -13,3 +13,6 @@
 [submodule "lib/fw-config-service"]
 	path = lib/fw-config-service
 	url = https://github.com/particle-iot/fw-config-service.git
+[submodule "lib/BeaconScanner"]
+	path = lib/BeaconScanner
+	url = https://github.com/particle-iot/beacon-scanner-library
