@@ -18,6 +18,8 @@
 
 #include "tracker_config.h"
 #include "tracker.h"
+
+#include "beacon_scan_config.h"
 #include "BeaconScanner.h"
 
 SYSTEM_THREAD(ENABLED);
@@ -43,9 +45,9 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_INFO, {
 // Called by Tracker instance when it's collecting `loc` json
 static void locGenCallback(JSONWriter &writer, LocationPoint &point, const void *context) {
     auto beacons = Scanner.getLairdBt510();
-    if (beacons.size() > 0) {
-        Log.info("beacons avail: %d", beacons.size());
+    Log.info("beacons avail: %d", beacons.size());
 
+    if (beacons.size() > 0) {
         writer.name("bcnz").beginObject();
         for (auto beacon : beacons) {
             Log.info("beacon: %s", beacon.getAddress().toString().c_str());
@@ -59,12 +61,13 @@ void setup() {
     Tracker::instance().init();
     delay(500);
     Tracker::instance().location.regLocGenCallback(locGenCallback);
-
+    // enable BLE radio so we can us it for scanning
     BLE.on();
 }
 
 void loop() {
     Tracker::instance().loop();
+    // scan for nearby BLE beacons advertising
     Scanner.scan(5, SCAN_LAIRDBT510 );
     delay(500);
-}
+} 
