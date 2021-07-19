@@ -16,3 +16,6 @@
 [submodule "lib/BeaconScanner"]
 	path = lib/BeaconScanner
 	url = https://github.com/particle-iot/beacon-scanner-library
+[submodule "lib/sht3x"]
+	path = lib/sht3x
+	url = https://github.com/particle-iot/sht3x-i2c

@@ -20,6 +20,7 @@
 #include "tracker.h"
 
 #include "BeaconScanner.h"
+#include "sht3x-i2c.h"
 
 
 SYSTEM_THREAD(ENABLED);
@@ -42,11 +43,25 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_INFO, {
 });
 
 
+// M8 Temperature - Humidity sensor
+Sht3xi2c sht_sensor(Wire3);
+
+
+static void publish_sht_data(JSONWriter& writer) {
+    double temp, humid;
+
+    if (0 == sht_sensor.get_reading(&temp, &humid)) {
+        writer.name("i2c_temp").value(temp);
+        writer.name("i2c_humid").value(humid);
+    }
+}
 
 // Called by Tracker instance when it's collecting `loc` json
 static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void *context) {
-     writer.name("bcnz").beginObject();
 
+    publish_sht_data(writer);
+
+     writer.name("bcnz").beginObject();
  
     #ifdef SUPPORT_LAIRDBT510
     {
@@ -97,12 +112,22 @@ static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void 
 void setup() {
     Tracker::instance().init();
     delay(500);
+        
+    // Turn on 5V output on M8 connector
+    pinMode(CAN_PWR, OUTPUT);      
+    digitalWrite(CAN_PWR, HIGH);  
+    delay(500);
 
     Tracker::instance().location.regLocGenCallback(locGenCallback);
-    // enable BLE radio so we can us it for scanning
+    // enable BLE radio so we can use it for scanning
     if ( SYSTEM_ERROR_NONE != BLE.on()) {
         Log.error("BLE on failed");
     }
+
+    // kick off the M8 sensor reading
+    sht_sensor.begin(CLOCK_SPEED_400KHZ);
+    sht_sensor.start_periodic(SHT31_ACCURACY_MEDIUM, 1); // 1 Hz measurement
+
 }
 
 void loop() {
