@@ -19,8 +19,8 @@
 #include "tracker_config.h"
 #include "tracker.h"
 
-#include "beacon_scan_config.h"
 #include "BeaconScanner.h"
+
 
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
@@ -42,32 +42,71 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_INFO, {
 });
 
 
-// Called by Tracker instance when it's collecting `loc` json
-static void locGenCallback(JSONWriter &writer, LocationPoint &point, const void *context) {
-    auto beacons = Scanner.getLairdBt510();
-    Log.info("beacons avail: %d", beacons.size());
 
-    if (beacons.size() > 0) {
-        writer.name("bcnz").beginObject();
-        for (auto beacon : beacons) {
-            Log.info("beacon: %s", beacon.getAddress().toString().c_str());
-            beacon.toJson(&writer);
+// Called by Tracker instance when it's collecting `loc` json
+static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void *context) {
+     writer.name("bcnz").beginObject();
+
+ 
+    #ifdef SUPPORT_LAIRDBT510
+    {
+        auto beacons = Scanner.getLairdBt510();
+        Log.info("Laird avail: %d", beacons.size());
+
+        if (beacons.size() > 0) {
+            for (auto beacon : beacons) {
+                Log.info("L beacon: %s", beacon.getAddress().toString().c_str());
+                beacon.toJson(&writer);
+            }
         }
-        writer.endObject(); //bcnz
     }
+    #endif //SUPPORT_LAIRDBT510
+
+    #ifdef SUPPORT_EDDYSTONE
+    {
+        auto beacons = Scanner.getEddystone();
+        Log.info("Eddy avail: %d", beacons.size());
+
+        if (beacons.size() > 0) {
+            for (auto beacon : beacons) {
+                Log.info("E beacon: %s", beacon.getAddress().toString().c_str());
+                beacon.toJson(&writer);
+            }
+        }
+    }
+    #endif //SUPPORT_EDDYSTONE
+
+     #ifdef SUPPORT_IBEACON
+    {
+        auto beacons = Scanner.getiBeacons();
+        Log.info("ibeacons avail: %d", beacons.size());
+
+        if (beacons.size() > 0) {
+            for (auto beacon : beacons) {
+                Log.info("I beacon: %s", beacon.getAddress().toString().c_str());
+                beacon.toJson(&writer);
+            }
+        }
+    }
+    #endif //SUPPORT_IBEACON
+
+    writer.endObject(); //bcnz
+
 }
 
 void setup() {
     Tracker::instance().init();
     delay(500);
+
     Tracker::instance().location.regLocGenCallback(locGenCallback);
     // enable BLE radio so we can us it for scanning
-    BLE.on();
+    if ( SYSTEM_ERROR_NONE != BLE.on()) {
+        Log.error("BLE on failed");
+    }
 }
 
 void loop() {
     Tracker::instance().loop();
     // scan for nearby BLE beacons advertising
-    Scanner.scan(5, SCAN_LAIRDBT510 );
-    delay(500);
+    Scanner.scan(5, SCAN_LAIRDBT510 | SCAN_EDDYSTONE | SCAN_IBEACON );
 } 
