@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+ 
 
 #include "Particle.h"
 
@@ -20,6 +21,7 @@
 #include "tracker.h"
 
 #include "BeaconScanner.h"
+// Robust temperature / humidity sensor
 #include "sht3x-i2c.h"
 
 
@@ -27,14 +29,14 @@ SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
 
 PRODUCT_ID(TRACKER_PRODUCT_ID);
-PRODUCT_VERSION(TRACKER_PRODUCT_VERSION);
+PRODUCT_VERSION(TRACKER_PRODUCT_VERSION + 1);
 
 STARTUP(
     Tracker::startup();
 );
 
 SerialLogHandler logHandler(115200, LOG_LEVEL_INFO, {
-    { "app.gps.nmea", LOG_LEVEL_INFO },
+    { "app.gps.nmea", LOG_LEVEL_WARN },
     { "comm.protocol", LOG_LEVEL_WARN},
     { "mux", LOG_LEVEL_WARN},
     { "app.gps.ubx",  LOG_LEVEL_WARN },
@@ -46,27 +48,35 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_INFO, {
 // M8 Temperature - Humidity sensor
 Sht3xi2c sht_sensor(Wire3);
 
+static double last_temperature = 0;
+static double last_humidity = 0;
+static uint32_t last_sht_read_ms = 0;
 
-static void publish_sht_data(JSONWriter& writer) {
+// Read the current M8 sensor data
+static void read_sht_data() {
     double temp, humid;
-
     if (0 == sht_sensor.get_reading(&temp, &humid)) {
-        writer.name("i2c_temp").value(temp);
-        writer.name("i2c_humid").value(humid);
+        last_temperature = temp;
+        last_humidity = humid;
+        last_sht_read_ms = millis();
     }
 }
 
-// Called by Tracker instance when it's collecting `loc` json
-static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void *context) {
+// Read and publish temperature and humidity sensor data
+static void publish_sht_data(JSONWriter& writer) {
+    if (last_sht_read_ms > 0) {
+        writer.name("sht3_temp").value(last_temperature);
+        writer.name("sht3_humid").value(last_humidity);
+    }
+}
 
-    publish_sht_data(writer);
-
-     writer.name("bcnz").beginObject();
+static void publish_beacon_data(JSONWriter& writer) {
+        writer.name("bcnz").beginObject();
  
     #ifdef SUPPORT_LAIRDBT510
     {
         auto beacons = Scanner.getLairdBt510();
-        Log.info("Laird avail: %d", beacons.size());
+        Log.trace("Laird avail: %d", beacons.size());
 
         if (beacons.size() > 0) {
             for (auto beacon : beacons) {
@@ -80,7 +90,7 @@ static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void 
     #ifdef SUPPORT_EDDYSTONE
     {
         auto beacons = Scanner.getEddystone();
-        Log.info("Eddy avail: %d", beacons.size());
+        Log.trace("Eddy avail: %d", beacons.size());
 
         if (beacons.size() > 0) {
             for (auto beacon : beacons) {
@@ -94,7 +104,7 @@ static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void 
      #ifdef SUPPORT_IBEACON
     {
         auto beacons = Scanner.getiBeacons();
-        Log.info("ibeacons avail: %d", beacons.size());
+        Log.trace("iBeacons avail: %d", beacons.size());
 
         if (beacons.size() > 0) {
             for (auto beacon : beacons) {
@@ -106,7 +116,12 @@ static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void 
     #endif //SUPPORT_IBEACON
 
     writer.endObject(); //bcnz
+}
 
+// Called by Tracker instance when it's collecting `loc` json for publication
+static void locGenCallback(JSONWriter& writer, LocationPoint& point, const void *context) {
+    publish_sht_data(writer);
+    publish_beacon_data(writer);
 }
 
 void setup() {
@@ -126,7 +141,10 @@ void setup() {
 
     // kick off the M8 sensor reading
     sht_sensor.begin(CLOCK_SPEED_400KHZ);
-    sht_sensor.start_periodic(SHT31_ACCURACY_MEDIUM, 1); // 1 Hz measurement
+    int rc = sht_sensor.start_periodic(SHT31_ACCURACY_MEDIUM, 1); // 1 Hz measurement
+    if (0 != rc) {
+        Log.error("SHT3x failed to start: %d",rc);
+    }
 
 }
 
@@ -134,4 +152,6 @@ void loop() {
     Tracker::instance().loop();
     // scan for nearby BLE beacons advertising
     Scanner.scan(5, SCAN_LAIRDBT510 | SCAN_EDDYSTONE | SCAN_IBEACON );
+    // record the latest M8 sensor readings
+    read_sht_data();
 } 

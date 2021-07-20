@@ -25,7 +25,7 @@
  * you can remove some beacon types.
  */
 
-#define SUPPORT_IBEACON
+// #define SUPPORT_IBEACON
 
 // #define SUPPORT_KONTAKT
 
@@ -33,7 +33,7 @@
 // #define SUPPORT_LAIRDBT510
 // #endif
 
-// #define SUPPORT_EDDYSTONE
+#define SUPPORT_EDDYSTONE
 // KKM SMART requires support for Eddystone as well
 // #define SUPPORT_KKMSMART
 
