@@ -33,6 +33,34 @@ Connecting the Tracker to USB
  
 
 
+### To Build & Flash with Particle Workbench (vscode)
+
+This application may be built with Device OS version 3.0.0.
+
+1. Clone this repository 
+2. Init & Update Submodules `git submodule update --init --recursive`
+3. Open Particle Workbench
+4. Run the `Particle: Import Project` command, follow the prompts, to select this project's `project.properties` file and wait for the project to load
+5. Run the `Particle: Configure Workspace for Device` command and select a compatible Device OS version and the `tracker` platform when prompted ([docs](https://docs.particle.io/tutorials/developer-tools/workbench/#cloud-build-and-flash))
+6. Connect your Tracker to your computer with a usb cable
+7. Compile & Flash using Workbench
+
+
+### To Build & Flash with Particle CLI
+
+This application may be built with Device OS version 3.0.0.
+
+1. Clone this repository 
+2. Init & Update Submodules `git submodule update --init --recursive`
+3. Cloud build (for Tracker) with CLI :
+`particle compile --target 3.0.0 tracker --saveTo tagsurveyor_tracker.bin`
+
+4. Connect your Tracker to your computer with a usb cable
+5. Use the CLI to flash the device using dfu:
+`particle usb dfu && particle flash --usb tagsurveyor_tracker.bin`
+
+
+
 # Resources
 
 - [Tracker Edge Latest Release](https://github.com/particle-iot/tracker-edge/releases)
