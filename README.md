@@ -29,7 +29,7 @@ the cloud, you can send the following from the "cmd" function: `{"cmd":"enter_sh
 This will cause the Tracker to power off and disconnect the battery
 so that the device will not awaken during shipment. 
 Connecting the Tracker to USB 
-[will reawaken it](see https://docs.particle.io/tutorials/asset-tracking/setup/#powering-off).
+[will reawaken it](https://docs.particle.io/tutorials/asset-tracking/setup/#powering-off).
  
 
 
