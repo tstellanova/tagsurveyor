@@ -59,6 +59,7 @@ static void read_sht_data() {
         last_temperature = temp;
         last_humidity = humid;
         last_sht_read_ms = millis();
+        Log.info("SHT T %f H %f ", last_temperature, last_humidity);
     }
 }
 
@@ -71,7 +72,7 @@ static void publish_sht_data(JSONWriter& writer) {
 }
 
 static void publish_beacon_data(JSONWriter& writer) {
-        writer.name("bcnz").beginObject();
+    writer.name("bcnz").beginObject();
  
     #ifdef SUPPORT_LAIRDBT510
     {
@@ -94,7 +95,12 @@ static void publish_beacon_data(JSONWriter& writer) {
 
         if (beacons.size() > 0) {
             for (auto beacon : beacons) {
-                Log.info("E beacon: %s", beacon.getAddress().toString().c_str());
+                if (beacon.getTlm().found) {
+                    Log.info("Eddystone TLM: %s %f", beacon.getAddress().toString().c_str(), beacon.getTlm().getTemp());
+                }
+                else {
+                    Log.info("Eddystone: %s", beacon.getAddress().toString().c_str());
+                }
                 beacon.toJson(&writer);
             }
         }
@@ -154,4 +160,19 @@ void loop() {
     Scanner.scan(5, SCAN_LAIRDBT510 | SCAN_EDDYSTONE | SCAN_IBEACON );
     // record the latest M8 sensor readings
     read_sht_data();
+
+    // // For debugging purposes: 
+    // if (!Particle.connected()) {
+    //     auto beacons = Scanner.getEddystone();
+    //     if (beacons.size() > 0) {
+    //         for (auto beacon : beacons) {
+    //             if (beacon.getTlm().found) {
+    //                 Log.info("Eddystone TLM: %s %f", beacon.getAddress().toString().c_str(), beacon.getTlm().getTemp());
+    //             }
+    //             else {
+    //                 Log.info("Eddystone: %s", beacon.getAddress().toString().c_str());
+    //             }
+    //         }
+    //     }
+    // }
 } 
